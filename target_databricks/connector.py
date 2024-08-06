@@ -117,7 +117,7 @@ class databricksConnector(SQLConnector):
             echo=False,
             connect_args={
                 "session_configuration": {
-                    "spark.databricks.delta.schema.autoMerge.enabled": "true"
+                    # "spark.databricks.delta.schema.autoMerge.enabled": "true"
                 }
             },
         )
@@ -240,14 +240,14 @@ class databricksConnector(SQLConnector):
 
         for property_name, property_jsonschema in properties.items():
             self.logger.info(property_name)
-            if property_name in primary_keys:
-                pk = f"{property_name} {self.to_sql_type(property_jsonschema)}"
-                column_specification_list.append(pk)
+            # if property_name in primary_keys:
+            pk = f"{property_name} {self.to_sql_type(property_jsonschema)}"
+            column_specification_list.append(pk)
 
-            if partition_keys:
-                if property_name in partition_keys:
-                    partition = (property_name, self.to_sql_type(property_jsonschema))
-                    column_specification_list.append(partition)
+            # if partition_keys:
+            #     if property_name in partition_keys:
+            #         partition = (property_name, self.to_sql_type(property_jsonschema))
+            #         column_specification_list.append(partition)
 
         column_specification_block = "(" + ",".join(column_specification_list) + ")"
         partition_columns = ",".join(partition_keys) if partition_keys else None

@@ -168,7 +168,7 @@ class databricksSink(SQLSink):
             bucket=self.config.get("bucket"),
             prefix=self.config.get("prefix"),
             full_table_name=self.full_table_name,
-            include_process_date=True,
+            include_process_date=self.config.get("include_process_date", False),
         )
         source_refenrce, s3_loc = stager.get_batch_file(records=records, schema=schema)
 
