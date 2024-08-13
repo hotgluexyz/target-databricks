@@ -316,13 +316,19 @@ class databricksConnector(SQLConnector):
         primary_keys: list[str] | None = None,
         partition_keys: list[str] | None = None,
     ) -> None:
-        create_statement, kwargs = self._get_create_table_statement(
-            full_table_name=full_table_name,
-            schema=schema,
-            primary_keys=primary_keys,
-            partition_keys=partition_keys,
-        )
+        # If the schema doesn't exist, attempt to create it
         with self._connect() as conn:
+            schema_name = full_table_name.split(".")[1]
+            if not self.schema_exists(schema_name):
+                self.logger.info("Creating schema: %s", schema_name)
+                conn.execute(sqlalchemy.schema.CreateSchema(schema_name))
+
+            create_statement, kwargs = self._get_create_table_statement(
+                full_table_name=full_table_name,
+                schema=schema,
+                primary_keys=primary_keys,
+                partition_keys=partition_keys,
+            )
             self.logger.info("Creating empty table: %s", create_statement)
             conn.execute(create_statement, **kwargs)
 
