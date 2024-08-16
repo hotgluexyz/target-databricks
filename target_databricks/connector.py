@@ -190,7 +190,7 @@ class databricksConnector(SQLConnector):
         ]
         type_maps = [
             TypeMap(
-                th._jsonschema_type_check, sqlalchemy.types.Integer(), ("integer",)
+                th._jsonschema_type_check, sqlalchemy.types.BigInteger(), ("integer",)
             ),  # noqa: SLF001
             TypeMap(th._jsonschema_type_check, "string", ("object",)),  # noqa: SLF001
             TypeMap(th._jsonschema_type_check, "string", ("array",)),  # noqa: SLF001
