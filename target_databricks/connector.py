@@ -267,7 +267,6 @@ class databricksConnector(SQLConnector):
         source_refrence: str,
         key_properties: Iterable[str],
     ):
-        """Get databricks MERGE statement."""
 
         join_expr = " and ".join(
             [f"d.{key} <=> s.{key}" for key in key_properties],
@@ -347,6 +346,8 @@ class databricksConnector(SQLConnector):
             key_properties: The primary key properties of the data.
         """
 
+        self.add_missing_columns(full_table_name, source_refrence)
+
         with self._connect() as conn:
             merge_statement, kwargs = self._get_merge_from_stage_statement(
                 full_table_name=full_table_name,
@@ -370,6 +371,8 @@ class databricksConnector(SQLConnector):
             sync_id: The sync ID for the batch.
             file_format: The name of the file format.
         """
+        self.add_missing_columns(full_table_name, source_refrence)
+
         with self._connect() as conn:
             appened_statement, kwargs = self._get_append_statement(
                 full_table_name=full_table_name,
@@ -377,3 +380,24 @@ class databricksConnector(SQLConnector):
             )
             self.logger.info("Appending with SQL: %s", appened_statement)
             conn.execute(appened_statement, **kwargs)
+
+    def add_missing_columns(self, full_table_name, source_refrence):
+        with self._connect() as conn:
+            # Fetch the columns from the target table
+            target_columns = self.get_table_columns(full_table_name).keys()
+
+            # Fetch the columns from the source reference
+            source_columns = self.get_table_columns(source_refrence).keys()
+
+            # Determine missing columns in the target
+            missing_columns = set(source_columns) - set(target_columns)
+
+            # Add missing columns to the target table
+            if missing_columns:
+                for col in missing_columns:
+                    col_type = self.get_table_columns(source_refrence)[col].type
+                    alter_statement = text(
+                        f"ALTER TABLE {full_table_name} ADD COLUMN {col} {col_type}"
+                    )
+                    self.logger.info("Adding column %s to table %s", col, full_table_name)
+                    conn.execute(alter_statement)
