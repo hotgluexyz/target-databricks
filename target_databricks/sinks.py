@@ -170,12 +170,15 @@ class databricksSink(SQLSink):
             full_table_name=self.full_table_name,
             include_process_date=self.config.get("include_process_date", False),
         )
-        source_reference, s3_loc = stager.get_batch_file(records=records, schema=schema)
+        source_reference, s3_loc, file_name = stager.get_batch_file(
+            records=records, schema=schema
+        )
 
         self.insert_batch_file_via_stage(
             full_table_name=full_table_name,
             source_reference=source_reference,
             s3_loc=s3_loc,
+            file_name=file_name,
         )
         return len(records) if isinstance(records, list) else None
 
@@ -193,6 +196,7 @@ class databricksSink(SQLSink):
         full_table_name: str,
         source_reference: str,
         s3_loc: str,
+        file_name: str,
     ) -> None:
         """Process a batch file with the given batch context.
 
@@ -209,6 +213,7 @@ class databricksSink(SQLSink):
                     schema=self.schema,
                     source_reference=source_reference,
                     key_properties=self.key_properties,
+                    file_name=file_name,
                 )
             else:
                 # append into destination table
@@ -216,6 +221,7 @@ class databricksSink(SQLSink):
                     full_table_name=full_table_name,
                     schema=self.schema,
                     source_reference=source_reference,
+                    file_name=file_name,
                 )
 
         finally:

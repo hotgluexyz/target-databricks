@@ -41,11 +41,23 @@ class s3ParquetStage:
         # prefix with target name
         self.prefix = f"{self.prefix}/{target_name}"
 
-    def get_key(self) -> str:
-        random_key = f"{int(datetime.now().timestamp())}/{uuid4()}"
-        return (
-            f"{self.bucket}/{self.prefix}/{self.full_table_name}/{random_key}.parquet"
-        )
+    def get_key(self, file_name: Optional[str] = None) -> str:
+        """Generate a key for the S3 object.
+
+        Args:
+            file_name: Optional; specific file name to use for the key.
+
+        Returns:
+            A string representing the S3 key.
+        """
+        if file_name:
+            key = file_name
+        else:
+            unique_id = uuid4()
+            key = f"{unique_id}"
+
+        timestamp = int(datetime.now().timestamp())
+        return f"{self.bucket}/{self.prefix}/{self.full_table_name}/{timestamp}/{key}.parquet"
 
     @property
     def logger(self) -> logging.Logger:
@@ -264,7 +276,10 @@ class s3ParquetStage:
     def write_batch(self, records, schema) -> str:
         df = self.create_batch(records, schema)
         try:
-            key = self.get_key()
+            tenant_id = df.column("tenant_id")[0] if "tenant_id" in df.column_names else None
+            stream = df.column("stream")[0] if "stream" in df.column_names else None
+            file_name = f"{tenant_id}_{stream}" if tenant_id and stream else None
+            key = self.get_key(file_name)
             self.logger.info(f"Writing to s3 at: {key}")
             ParquetWriter(
                 key,
@@ -272,7 +287,7 @@ class s3ParquetStage:
                 compression="gzip",
                 filesystem=self.file_system,
             ).write_table(df)
-            return key
+            return key, file_name
         except Exception as e:
             self.logger.error(e)
             if type(e) is pyarrow.lib.ArrowNotImplementedError:
@@ -284,5 +299,5 @@ class s3ParquetStage:
             raise e
 
     def get_batch_file(self, records, schema) -> Tuple[str, str]:
-        s3_url = self.write_batch(records=records, schema=schema)
-        return f"parquet.`s3://{s3_url}`", s3_url
+        s3_url, file_name = self.write_batch(records=records, schema=schema)
+        return f"parquet.`s3://{s3_url}`", file_name

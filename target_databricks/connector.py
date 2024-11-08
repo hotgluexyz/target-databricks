@@ -337,6 +337,7 @@ class databricksConnector(SQLConnector):
         schema: dict,
         source_reference: str,
         key_properties: Sequence[str],
+        file_name: str,
     ):
         """Merge data from a stage (s3) into a table.
 
@@ -357,11 +358,15 @@ class databricksConnector(SQLConnector):
             self.logger.info("Merging with SQL: %s", merge_statement)
             conn.execute(merge_statement, **kwargs)
 
+        if file_name is not None and full_table_name != file_name:
+            self.rename_full_table(full_table_name, file_name)
+
     def append_from_stage(
         self,
         full_table_name: str,
         schema: dict,
         source_reference: str,
+        file_name: str,
     ):
         """Copy data from a stage into a table.
 
@@ -380,6 +385,9 @@ class databricksConnector(SQLConnector):
             )
             self.logger.info("Appending with SQL: %s", appened_statement)
             conn.execute(appened_statement, **kwargs)
+
+        if file_name is not None and full_table_name != file_name:
+            self.rename_full_table(full_table_name, file_name)
 
     def add_missing_columns(self, full_table_name, source_reference):
         with self._connect() as conn:
@@ -401,3 +409,9 @@ class databricksConnector(SQLConnector):
                     )
                     self.logger.info("Adding column %s to table %s", col, full_table_name)
                     conn.execute(alter_statement)
+
+    def rename_full_table(self, full_table_name, new_name):
+        with self._connect() as conn:
+            rename_statement = text(f"ALTER TABLE {full_table_name} RENAME TO {new_name}")
+            self.logger.info("Renaming table %s to %s", full_table_name, new_name)
+            conn.execute(rename_statement)
