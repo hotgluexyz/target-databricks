@@ -170,11 +170,11 @@ class databricksSink(SQLSink):
             full_table_name=self.full_table_name,
             include_process_date=self.config.get("include_process_date", False),
         )
-        source_refenrce, s3_loc = stager.get_batch_file(records=records, schema=schema)
+        source_reference, s3_loc = stager.get_batch_file(records=records, schema=schema)
 
         self.insert_batch_file_via_stage(
             full_table_name=full_table_name,
-            source_refrence=source_refenrce,
+            source_reference=source_reference,
             s3_loc=s3_loc,
         )
         return len(records) if isinstance(records, list) else None
@@ -191,7 +191,7 @@ class databricksSink(SQLSink):
     def insert_batch_file_via_stage(
         self,
         full_table_name: str,
-        source_refrence: str,
+        source_reference: str,
         s3_loc: str,
     ) -> None:
         """Process a batch file with the given batch context.
@@ -207,7 +207,7 @@ class databricksSink(SQLSink):
                 self.connector.merge_from_stage(
                     full_table_name=full_table_name,
                     schema=self.schema,
-                    source_refrence=source_refrence,
+                    source_reference=source_reference,
                     key_properties=self.key_properties,
                 )
             else:
@@ -215,14 +215,14 @@ class databricksSink(SQLSink):
                 self.connector.append_from_stage(
                     full_table_name=full_table_name,
                     schema=self.schema,
-                    source_refrence=source_refrence,
+                    source_reference=source_reference,
                 )
 
         finally:
             # clean up local files
             if self.config.get("clean_up_staged_files"):
                 self.logger.info("Cleaning up after batch processing")
-                # s3 remove source_refrence
+                # s3 remove source_reference
                 s3 = self.aws_session.client("s3")
                 try:
                     # List objects in the specified bucket and prefix

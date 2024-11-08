@@ -264,7 +264,7 @@ class databricksConnector(SQLConnector):
     def _get_merge_from_stage_statement(  # noqa: ANN202, PLR0913
         self,
         full_table_name: str,
-        source_refrence: str,
+        source_reference: str,
         key_properties: Iterable[str],
     ):
 
@@ -286,7 +286,7 @@ class databricksConnector(SQLConnector):
         return (
             text(
                 f"merge into {full_table_name} d using "  # noqa: S608, ISC003
-                + f"(select * from {source_refrence} "  # noqa: S608
+                + f"(select * from {source_reference} "  # noqa: S608
                 + f"{dedup}) s "
                 + f"on {join_expr} "
                 + "when matched then update set * "
@@ -296,14 +296,14 @@ class databricksConnector(SQLConnector):
         )
 
     def _get_append_statement(
-        self, full_table_name, source_refrence
+        self, full_table_name, source_reference
     ):  # noqa: ANN202, ANN001
         """Get databricks append statement."""
 
         return (
             text(
                 f"insert into {full_table_name} "  # noqa: S608, ISC003
-                + f"(select * from {source_refrence})"  # noqa: S608
+                + f"(select * from {source_reference})"  # noqa: S608
             ),
             {},
         )
@@ -335,7 +335,7 @@ class databricksConnector(SQLConnector):
         self,
         full_table_name: str,
         schema: dict,
-        source_refrence: str,
+        source_reference: str,
         key_properties: Sequence[str],
     ):
         """Merge data from a stage (s3) into a table.
@@ -346,12 +346,12 @@ class databricksConnector(SQLConnector):
             key_properties: The primary key properties of the data.
         """
 
-        self.add_missing_columns(full_table_name, source_refrence)
+        self.add_missing_columns(full_table_name, source_reference)
 
         with self._connect() as conn:
             merge_statement, kwargs = self._get_merge_from_stage_statement(
                 full_table_name=full_table_name,
-                source_refrence=source_refrence,
+                source_reference=source_reference,
                 key_properties=key_properties,
             )
             self.logger.info("Merging with SQL: %s", merge_statement)
@@ -361,7 +361,7 @@ class databricksConnector(SQLConnector):
         self,
         full_table_name: str,
         schema: dict,
-        source_refrence: str,
+        source_reference: str,
     ):
         """Copy data from a stage into a table.
 
@@ -371,23 +371,23 @@ class databricksConnector(SQLConnector):
             sync_id: The sync ID for the batch.
             file_format: The name of the file format.
         """
-        self.add_missing_columns(full_table_name, source_refrence)
+        self.add_missing_columns(full_table_name, source_reference)
 
         with self._connect() as conn:
             appened_statement, kwargs = self._get_append_statement(
                 full_table_name=full_table_name,
-                source_refrence=source_refrence,
+                source_reference=source_reference,
             )
             self.logger.info("Appending with SQL: %s", appened_statement)
             conn.execute(appened_statement, **kwargs)
 
-    def add_missing_columns(self, full_table_name, source_refrence):
+    def add_missing_columns(self, full_table_name, source_reference):
         with self._connect() as conn:
             # Fetch the columns from the target table
             target_columns = self.get_table_columns(full_table_name).keys()
 
             # Fetch the columns from the source reference
-            source_columns = self.get_table_columns(source_refrence).keys()
+            source_columns = self.get_table_columns(source_reference).keys()
 
             # Determine missing columns in the target
             missing_columns = set(source_columns) - set(target_columns)
@@ -395,7 +395,7 @@ class databricksConnector(SQLConnector):
             # Add missing columns to the target table
             if missing_columns:
                 for col in missing_columns:
-                    col_type = self.get_table_columns(source_refrence)[col].type
+                    col_type = self.get_table_columns(source_reference)[col].type
                     alter_statement = text(
                         f"ALTER TABLE {full_table_name} ADD COLUMN {col} {col_type}"
                     )
