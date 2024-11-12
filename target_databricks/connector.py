@@ -4,7 +4,7 @@ from operator import contains, eq
 from typing import TYPE_CHECKING, Any, Iterable, Sequence, cast
 
 import sqlalchemy
-from databricks.sqlalchemy._types import TIMESTAMP_NTZ, DatabricksStringType
+from databricks.sqlalchemy._types import DatabricksStringType
 from singer_sdk import typing as th
 from singer_sdk.connectors import SQLConnector
 from sqlalchemy.sql import text
@@ -377,3 +377,28 @@ class databricksConnector(SQLConnector):
             )
             self.logger.info("Appending with SQL: %s", appened_statement)
             conn.execute(appened_statement, **kwargs)
+
+    def _convert_type(self, column_type) -> sqlalchemy.types.TypeEngine:
+        """Convert a column type from metadata to a SQLAlchemy type.
+
+        Args:
+            column_type: The type of the column from metadata.
+
+        Returns:
+            The corresponding SQLAlchemy type.
+        """
+        if isinstance(column_type, sqlalchemy.types.TypeEngine):
+            return column_type
+        type_mapping = {
+            "string": sqlalchemy.types.String,
+            "integer": sqlalchemy.types.BigInteger,
+            "float": sqlalchemy.types.Float,
+            "boolean": sqlalchemy.types.Boolean,
+            "date": sqlalchemy.types.Date,
+            "time": sqlalchemy.types.TIME,
+        }
+
+        if isinstance(column_type, str):
+            return type_mapping.get(column_type.lower(), sqlalchemy.types.String)()
+        else:
+            raise ValueError(f"Unsupported type: {column_type}")
