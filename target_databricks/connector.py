@@ -4,7 +4,7 @@ from operator import contains, eq
 from typing import TYPE_CHECKING, Any, Iterable, Sequence, cast
 
 import sqlalchemy
-from databricks.sqlalchemy._types import TIMESTAMP_NTZ, DatabricksStringType
+from databricks.sqlalchemy._types import DatabricksStringType
 from singer_sdk import typing as th
 from singer_sdk.connectors import SQLConnector
 from sqlalchemy.sql import text
@@ -345,7 +345,6 @@ class databricksConnector(SQLConnector):
             schema: The schema of the data.
             key_properties: The primary key properties of the data.
         """
-
         self.add_missing_columns(full_table_name, source_refrence)
 
         with self._connect() as conn:
@@ -382,22 +381,64 @@ class databricksConnector(SQLConnector):
             conn.execute(appened_statement, **kwargs)
 
     def add_missing_columns(self, full_table_name, source_refrence):
+        # SQL to get columns from a table
+        get_columns_sql = """
+            SELECT column_name, data_type, character_maximum_length
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE table_name = :table_name
+        """
+
+        create_view_sql = f"""
+            CREATE TEMPORARY VIEW stage_view_{full_table_name.split('.')[-1]} AS
+            SELECT * FROM {source_refrence}
+        """
+
         with self._connect() as conn:
-            # Fetch the columns from the target table
-            target_columns = self.get_table_columns(full_table_name).keys()
+            # Get columns from the target table
+            target_columns = conn.execute(
+                text(get_columns_sql), {"table_name": full_table_name.split(".")[-1]}
+            ).fetchall()
 
-            # Fetch the columns from the source reference
-            source_columns = self.get_table_columns(source_refrence).keys()
+            conn.execute(text(create_view_sql))
 
-            # Determine missing columns in the target
-            missing_columns = set(source_columns) - set(target_columns)
+            # Get columns from the source reference
+            describe_view_sql = f"DESCRIBE stage_view_{full_table_name.split('.')[-1]}"
+            source_columns = conn.execute(text(describe_view_sql)).fetchall()
+            
+            target_column_names = {row[0] for row in target_columns}
+            source_column_names = {row[0] for row in source_columns}
+
+            # Identify missing columns
+            missing_columns = source_column_names - target_column_names
 
             # Add missing columns to the target table
-            if missing_columns:
-                for col in missing_columns:
-                    col_type = self.get_table_columns(source_refrence)[col].type
-                    alter_statement = text(
-                        f"ALTER TABLE {full_table_name} ADD COLUMN {col} {col_type}"
-                    )
-                    self.logger.info("Adding column %s to table %s", col, full_table_name)
-                    conn.execute(alter_statement)
+            for column in source_columns:
+                if column[0] in missing_columns:
+                    alter_statement = f"ALTER TABLE {full_table_name} ADD COLUMN {column[0]} {column[1]}"
+                    self.logger.info("Adding missing column: %s", column[0])
+                    conn.execute(text(alter_statement))
+
+    def _convert_type(self, column_type) -> sqlalchemy.types.TypeEngine:
+        """Convert a column type from metadata to a SQLAlchemy type.
+
+        Args:
+            column_type: The type of the column from metadata.
+
+        Returns:
+            The corresponding SQLAlchemy type.
+        """
+        if isinstance(column_type, sqlalchemy.types.TypeEngine):
+            return column_type
+        type_mapping = {
+            "string": DatabricksStringType,
+            "integer": sqlalchemy.types.BigInteger,
+            "float": sqlalchemy.types.Float,
+            "boolean": sqlalchemy.types.Boolean,
+            "date": sqlalchemy.types.Date,
+            "time": sqlalchemy.types.TIME,
+        }
+
+        if isinstance(column_type, str):
+            return type_mapping.get(column_type.lower(), DatabricksStringType)()
+        else:
+            raise ValueError(f"Unsupported type: {column_type}")
