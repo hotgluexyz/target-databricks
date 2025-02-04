@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 from boto3 import Session
 from singer_sdk.sinks import SQLSink
+from sqlalchemy.sql import text
 
 from target_databricks.connector import databricksConnector
 from target_databricks.stage.s3_parquet import s3ParquetStage
@@ -159,6 +160,10 @@ class databricksSink(SQLSink):
                 profile_name=self.config.get("aws_profile_name", None),
             )
 
+        # list all columns in the table
+        with self.connector._connect() as conn:
+            columns = conn.execute(text(f"DESCRIBE TABLE {self.full_table_name}")).fetchall()
+
         stager = s3ParquetStage(
             target_name=self.target.name,
             aws_access_key_id=self.aws_session.get_credentials().access_key,
@@ -169,6 +174,8 @@ class databricksSink(SQLSink):
             prefix=self.config.get("prefix"),
             full_table_name=self.full_table_name,
             include_process_date=self.config.get("include_process_date", False),
+            columns=[{"name": c[0], "type": c[1]} for c in columns] # get the columns
+            #[{'name': 'type', 'type': 'string'}, {'name': 'id', 'type': 'string'}, {'name': 'relationships', 'type': 'string'}, {'name': 'links', 'type': 'string'}, {'name': 'email', 'type': 'string'}, {'name': 'phone_number', 'type': 'string'}, {'name': 'first_name', 'type': 'string'}, {'name': 'last_name', 'type': 'string'}, {'name': 'organization', 'type': 'string'}, {'name': 'locale', 'type': 'string'}, {'name': 'created', 'type': 'timestamp'}, {'name': 'updated', 'type': 'timestamp'}, {'name': 'last_event_date', 'type': 'timestamp'}, {'name': 'location', 'type': 'string'}, {'name': 'properties', 'type': 'string'}, {'name': 'tenant', 'type': 'string'}, {'name': 'hotglue_synced', 'type': 'string'}, {'name': 'external_id', 'type': 'string'}]
         )
         source_refenrce, s3_loc = stager.get_batch_file(records=records, schema=schema)
 

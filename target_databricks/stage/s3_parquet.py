@@ -23,6 +23,7 @@ class s3ParquetStage:
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
         prefix: Optional[str] = None,
+        columns = None,
     ):
         self.file_system = fs.S3FileSystem(
             access_key=aws_access_key_id,
@@ -37,6 +38,7 @@ class s3ParquetStage:
         self.parquet_schema = None
         self.key = None
         self.include_process_date = include_process_date
+        self.columns = columns
 
         # prefix with target name
         self.prefix = f"{self.prefix}/{target_name}"
@@ -241,6 +243,18 @@ class s3ParquetStage:
         self.parquet_schema = parquet_schema
         return parquet_schema
 
+    def get_field_type(self, key, type):
+        if "integer" in type:
+            return pyarrow.field(key, pyarrow.int64())
+        elif "number" in type:
+            return pyarrow.field(key, pyarrow.float64())
+        elif "boolean" in type:
+            return pyarrow.field(key, pyarrow.bool_())
+        elif "timestamp" in type:
+            return pyarrow.field(key, pyarrow.timestamp("ms", tz="utc"))
+        else:
+            return pyarrow.field(key, pyarrow.string())
+
     def create_batch(self, records, schema) -> Table:
         """Creates a pyarrow Table object from the record set."""
         try:
@@ -251,6 +265,16 @@ class s3ParquetStage:
             )
             fields = set([property.name for property in parquet_schema])
             input = {f: [self.sanitize(row.get(f)) for row in records] for f in fields}
+            self.logger.info(f"Expecting columns = {self.columns}. Got columns = {parquet_schema.names}")
+
+            for c in self.columns:
+                if c["name"] not in parquet_schema.names:
+                    f = c["name"]
+                    self.logger.info(f"Adding field {c}")
+                    # need to add this field to the parquet file
+                    parquet_schema = parquet_schema.append(self.get_field_type(f, c["type"]))
+                    # need to add it to the input data as well with value set to null
+                    input[f] = [None] * len(records)
 
             ret = Table.from_pydict(mapping=input, schema=parquet_schema)
 
@@ -263,6 +287,10 @@ class s3ParquetStage:
 
     def write_batch(self, records, schema) -> str:
         df = self.create_batch(records, schema)
+        self.logger.info(f"Built parquet file with schema = {df.schema}")
+        # enforce the parquet file being in the correct order
+        df = df.select([c["name"] for c in self.columns])
+
         try:
             key = self.get_key()
             self.logger.info(f"Writing to s3 at: {key}")
