@@ -269,9 +269,12 @@ class s3ParquetStage:
 
             for c in self.columns:
                 if c["name"] not in parquet_schema.names:
+                    f = c["name"]
                     self.logger.info(f"Adding field {c}")
                     # need to add this field to the parquet file
-                    parquet_schema = parquet_schema.append(self.get_field_type(c["name"], c["type"]))
+                    parquet_schema = parquet_schema.append(self.get_field_type(f, c["type"]))
+                    # need to add it to the input data as well with value set to null
+                    input[f] = [None] * len(records)
 
             ret = Table.from_pydict(mapping=input, schema=parquet_schema)
 
