@@ -389,7 +389,7 @@ class databricksConnector(SQLConnector):
         """
 
         create_view_sql = f"""
-            CREATE TEMPORARY VIEW stage_view_{full_table_name.split('.')[-1]} AS
+            CREATE TEMPORARY VIEW IF NOT EXISTS stage_view_{full_table_name.split('.')[-1]} AS
             SELECT * FROM {source_refrence}
         """
 
