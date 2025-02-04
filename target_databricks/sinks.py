@@ -174,7 +174,8 @@ class databricksSink(SQLSink):
             prefix=self.config.get("prefix"),
             full_table_name=self.full_table_name,
             include_process_date=self.config.get("include_process_date", False),
-            columns=[c[0] for c in columns] # get the columns
+            columns=[{"name": c[0], "type": c[1]} for c in columns] # get the columns
+            #[{'name': 'type', 'type': 'string'}, {'name': 'id', 'type': 'string'}, {'name': 'relationships', 'type': 'string'}, {'name': 'links', 'type': 'string'}, {'name': 'email', 'type': 'string'}, {'name': 'phone_number', 'type': 'string'}, {'name': 'first_name', 'type': 'string'}, {'name': 'last_name', 'type': 'string'}, {'name': 'organization', 'type': 'string'}, {'name': 'locale', 'type': 'string'}, {'name': 'created', 'type': 'timestamp'}, {'name': 'updated', 'type': 'timestamp'}, {'name': 'last_event_date', 'type': 'timestamp'}, {'name': 'location', 'type': 'string'}, {'name': 'properties', 'type': 'string'}, {'name': 'tenant', 'type': 'string'}, {'name': 'hotglue_synced', 'type': 'string'}, {'name': 'external_id', 'type': 'string'}]
         )
         source_refenrce, s3_loc = stager.get_batch_file(records=records, schema=schema)
 

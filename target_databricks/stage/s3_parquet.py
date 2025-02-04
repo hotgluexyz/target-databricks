@@ -243,6 +243,18 @@ class s3ParquetStage:
         self.parquet_schema = parquet_schema
         return parquet_schema
 
+    def get_field_type(self, key, type):
+        if "integer" in type:
+            return pyarrow.field(key, pyarrow.int64())
+        elif "number" in type:
+            return pyarrow.field(key, pyarrow.float64())
+        elif "boolean" in type:
+            return pyarrow.field(key, pyarrow.bool_())
+        elif "timestamp" in type:
+            return pyarrow.field(key, pyarrow.timestamp("ms", tz="utc"))
+        else:
+            return pyarrow.field(key, pyarrow.string())
+
     def create_batch(self, records, schema) -> Table:
         """Creates a pyarrow Table object from the record set."""
         try:
@@ -253,6 +265,11 @@ class s3ParquetStage:
             )
             fields = set([property.name for property in parquet_schema])
             input = {f: [self.sanitize(row.get(f)) for row in records] for f in fields}
+
+            for c in self.columns:
+                if c["name"] not in parquet_schema.names:
+                    # need to add this field to the parquet file
+                    parquet_schema.append(self.get_field_type(c["name"], c["type"]))
 
             ret = Table.from_pydict(mapping=input, schema=parquet_schema)
 
@@ -266,7 +283,7 @@ class s3ParquetStage:
     def write_batch(self, records, schema) -> str:
         df = self.create_batch(records, schema)
         # enforce the parquet file being in the correct order
-        df = df.select(self.columns)
+        df = df.select([c["name"] for c in self.columns])
 
         try:
             key = self.get_key()
