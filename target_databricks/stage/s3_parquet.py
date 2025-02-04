@@ -23,6 +23,7 @@ class s3ParquetStage:
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
         prefix: Optional[str] = None,
+        columns = None,
     ):
         self.file_system = fs.S3FileSystem(
             access_key=aws_access_key_id,
@@ -37,6 +38,7 @@ class s3ParquetStage:
         self.parquet_schema = None
         self.key = None
         self.include_process_date = include_process_date
+        self.columns = columns
 
         # prefix with target name
         self.prefix = f"{self.prefix}/{target_name}"
@@ -263,6 +265,9 @@ class s3ParquetStage:
 
     def write_batch(self, records, schema) -> str:
         df = self.create_batch(records, schema)
+        # enforce the parquet file being in the correct order
+        df = df.select(self.columns)
+
         try:
             key = self.get_key()
             self.logger.info(f"Writing to s3 at: {key}")
