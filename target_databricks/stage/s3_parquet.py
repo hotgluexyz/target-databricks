@@ -265,9 +265,11 @@ class s3ParquetStage:
             )
             fields = set([property.name for property in parquet_schema])
             input = {f: [self.sanitize(row.get(f)) for row in records] for f in fields}
+            self.logger.info(f"Expecting columns = {self.columns}. Got columns = {parquet_schema.names}")
 
             for c in self.columns:
                 if c["name"] not in parquet_schema.names:
+                    self.logger.info(f"Adding field {c}")
                     # need to add this field to the parquet file
                     parquet_schema.append(self.get_field_type(c["name"], c["type"]))
 
@@ -282,6 +284,7 @@ class s3ParquetStage:
 
     def write_batch(self, records, schema) -> str:
         df = self.create_batch(records, schema)
+        self.logger.info(f"Built parquet file with schema = {df.schema}")
         # enforce the parquet file being in the correct order
         df = df.select([c["name"] for c in self.columns])
 
