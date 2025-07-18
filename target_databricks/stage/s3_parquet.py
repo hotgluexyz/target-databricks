@@ -58,10 +58,17 @@ class s3ParquetStage:
         """
         return logging.getLogger("s3ParquetStage")
 
-    def sanitize(self, value):
+    def sanitize(self, value, field_type=None):
         if isinstance(value, dict) and not value:
             # pyarrow can't process empty struct
             return None
+        if isinstance(value, dict):
+            return {k: self.sanitize(v, field_type.field(k).type) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self.sanitize(item, field_type.value_field.type) for item in value]
+        # if singer schema accepts any value, target types it as string, enforcing types
+        if value is not None and field_type == "string" and not isinstance(value, str):
+            value = str(value)
         if isinstance(value, str):
             # pyarrow can't process empty struct
             try:
@@ -264,7 +271,7 @@ class s3ParquetStage:
                 else self.create_schema(schema=schema)
             )
             fields = set([property.name for property in parquet_schema])
-            input = {f: [self.sanitize(row.get(f)) for row in records] for f in fields}
+            input = {f: [self.sanitize(row.get(f), parquet_schema.field(f).type) for row in records] for f in fields}
             self.logger.info(f"Expecting columns = {self.columns}. Got columns = {parquet_schema.names}")
 
             for c in self.columns:
