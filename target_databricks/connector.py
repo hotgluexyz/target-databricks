@@ -385,7 +385,7 @@ class databricksConnector(SQLConnector):
         get_columns_sql = """
             SELECT column_name, data_type, character_maximum_length
             FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE table_name = :table_name
+            WHERE lower(table_name) = lower(:table_name)
         """
 
         create_view_sql = f"""
