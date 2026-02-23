@@ -39,6 +39,7 @@ class Auth:
             data = response.json()
 
             self.__access_token = data["access_token"]
+            self.__refresh_token = data["refresh_token"]
             self.__config["refresh_token"] = data["refresh_token"]
             self.__config["access_token"] = data["access_token"]
 
