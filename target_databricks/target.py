@@ -46,7 +46,7 @@ class Targetdatabricks(Target):
             "access_token",
             th.StringType,
             secret=True,  # Flag config as protected.
-            description="Databricks Persoanl Access Token",
+            description="Databricks Personal Access Token",
         ),
         th.Property(
             "http_path",
