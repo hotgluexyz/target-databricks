@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import decimal
 import json
 
+from pathlib import PurePath
 from singer_sdk import typing as th
 from singer_sdk.target_base import Target
 
 from target_databricks.sinks import databricksSink
+from target_databricks.auth import Auth
 
 
 class Targetdatabricks(Target):
@@ -24,10 +25,28 @@ class Targetdatabricks(Target):
             description="Databricks host for connection",
         ),
         th.Property(
+            "client_id",
+            th.StringType,
+            secret=True,  # Flag config as protected.
+            description="OAuth 2 Client ID",
+        ),
+        th.Property(
+            "client_secret",
+            th.StringType,
+            secret=True,  # Flag config as protected.
+            description="OAuth 2 Client Secret",
+        ),
+        th.Property(
+            "refresh_token",
+            th.StringType,
+            secret=True,  # Flag config as protected.
+            description="OAuth 2 Refresh Token",
+        ),
+        th.Property(
             "access_token",
             th.StringType,
             secret=True,  # Flag config as protected.
-            description="Databricks token for connection",
+            description="Databricks Personal Access Token",
         ),
         th.Property(
             "http_path",
@@ -98,6 +117,30 @@ class Targetdatabricks(Target):
     ).to_dict()
 
     default_sink_class = databricksSink
+
+    def __init__(
+        self,
+        config=None,
+        parse_env_config: bool = False,
+        validate_config: bool = True
+    ) -> None:
+        self.config_file_path = None
+        if isinstance(config, str) or isinstance(config, PurePath):
+            self.config_file_path = str(config)
+        elif isinstance(config, list):
+            self.config_file_path = str(config[0])
+        elif isinstance(config, dict):
+            raise Exception("Config must be a file path or a list of file paths")
+        elif config is None:
+            raise Exception("Config not provided")
+
+        super().__init__(
+            config=config,
+            parse_env_config=parse_env_config,
+            validate_config=validate_config,
+        )
+
+        self.auth = Auth(self)
 
     def deserialize_json(self, line: str) -> dict:
         """Override base target's method to overcome Decimal cast,
