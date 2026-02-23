@@ -9,6 +9,8 @@ from singer_sdk import typing as th
 from singer_sdk.connectors import SQLConnector
 from sqlalchemy.sql import text
 
+from target_databricks.auth import Auth
+
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
@@ -41,7 +43,8 @@ class databricksConnector(SQLConnector):
     This class handles all DDL and type conversions.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, auth: Auth, *args: Any, **kwargs: Any) -> None:
+        self.auth = auth
         self.table_cache: dict = {}
         self.schema_cache: dict = {}
         super().__init__(*args, **kwargs)
@@ -87,11 +90,10 @@ class databricksConnector(SQLConnector):
         """
 
         host = self.config["host"]
-        access_token = self.config["access_token"]
         http_path = self.config["http_path"]
         catalog = self.config["catalog"]
 
-        connect_url = f"databricks://token:{access_token}@{host}?http_path={http_path}&catalog={catalog}"
+        connect_url = f"databricks://token@{host}?http_path={http_path}&catalog={catalog}"
 
         return connect_url
 
@@ -121,6 +123,10 @@ class databricksConnector(SQLConnector):
                 }
             },
         )
+
+        @sqlalchemy.event.listens_for(engine, "do_connect")
+        def fetch_and_inject_token(dialect, conn_rec, cargs, cparams):
+            cparams['access_token'] = self.auth.get_access_token()
 
         # TODO: add schema check
         # db_names = [db[1] for db in engine.connection.execute(text("SHOW DATABASES;")).fetchall()]

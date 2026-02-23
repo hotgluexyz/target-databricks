@@ -38,8 +38,6 @@ def parse_s3_uri(s3_uri):
 class databricksSink(SQLSink):
     """databricks target sink class."""
 
-    connector_class = databricksConnector
-
     MAX_SIZE_DEFAULT = 100000
 
     def __init__(  # noqa: PLR0913
@@ -52,11 +50,13 @@ class databricksSink(SQLSink):
         """Initialize Snowflake Sink."""
         self.target = target
         self.aws_session = None
+        self.databricks_connector = databricksConnector(auth=self.target.auth, config=dict(target.config))
         super().__init__(
             target=target,
             stream_name=stream_name,
             schema=schema,
             key_properties=key_properties,
+            connector=self.databricks_connector,
         )
 
     @property
