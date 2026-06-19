@@ -22,19 +22,28 @@ class Targetdatabricks(Target):
             "host",
             th.StringType,
             secret=True,  # Flag config as protected.
+            required=True,
             description="Databricks host for connection",
         ),
         th.Property(
             "client_id",
             th.StringType,
             secret=True,  # Flag config as protected.
-            description="OAuth 2 Client ID",
+            required=True,
+            description="Client ID",
         ),
         th.Property(
             "client_secret",
             th.StringType,
             secret=True,  # Flag config as protected.
-            description="OAuth 2 Client Secret",
+            required=True,
+            description="Client Secret",
+        ),
+        th.Property(
+            "oauth_scope",
+            th.StringType,
+            default="all-apis",
+            description="OAuth scope for service principal token",
         ),
         th.Property(
             "refresh_token",
@@ -52,6 +61,7 @@ class Targetdatabricks(Target):
             "http_path",
             th.StringType,
             secret=True,  # Flag config as protected.
+            required=True,
             description="Databricks http path for connection",
         ),
         th.Property(

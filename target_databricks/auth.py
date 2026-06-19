@@ -14,14 +14,23 @@ class Auth:
         self.__client_secret = self.__config.get("client_secret")
         self.__refresh_token = self.__config.get("refresh_token")
 
-        self.__is_oa_auth = self.__client_id is not None and self.__client_secret is not None and self.__refresh_token is not None
+        self.__is_oa_auth = self.__client_id is not None and self.__client_secret is not None and self.__refresh_token is not None and self.__refresh_token != ""
 
         self.__session = requests.Session()
         self.__access_token = None if self.__is_oa_auth else self.__config.get("access_token")
         self.__expires_at = None
 
+        #handle OAuth2 case where refresh token is provided in the config
+        #handle PAT auth case where access token is provided in the config
+        self.__is_service_principal_auth = (
+            self.__client_id is not None \
+            and self.__client_secret is not None \
+            and (self.__access_token is None or self.__access_token == "") \
+            and not self.__is_oa_auth
+        )
 
-    def ensure_access_token(self):
+
+    def ensure_access_token_oa(self):
         if self.__access_token is None or self.__expires_at is None or self.__expires_at <= datetime.now(timezone.utc):
             response = self.__session.post(
                 f"https://{self.__host}/oidc/v1/token",
@@ -50,10 +59,28 @@ class Auth:
                 seconds=int(data["expires_in"]) - 10
             )
 
+    def ensure_access_token_service_principal(self):
+        if self.__access_token is None or self.__expires_at is None or self.__expires_at <= datetime.now(timezone.utc):
+            response = self.__session.post(
+                f"https://{self.__host}/oidc/v1/token",
+                data={
+                    "client_id": self.__client_id,
+                    "client_secret": self.__client_secret,
+                    "grant_type": "client_credentials",
+                    "scope": self.__config.get("oauth_scope", "all-apis"),
+                },
+            )
+            if response.status_code != 200:
+                raise Exception(response.text)
+            data = response.json()
+            self.__access_token = data["access_token"]
+            self.__expires_at = datetime.now(timezone.utc) + timedelta(seconds=int(data["expires_in"]) - 10)
+        
     def get_access_token(self):
-        if self.__is_oa_auth:
-            with self.__lock:
-                self.ensure_access_token()
-
+        with self.__lock:
+            if self.__is_oa_auth:
+                self.ensure_access_token_oa()
+            elif self.__is_service_principal_auth:
+                self.ensure_access_token_service_principal()
         return self.__access_token
     
