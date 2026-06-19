@@ -14,19 +14,20 @@ class Auth:
         self.__client_secret = self.__config.get("client_secret")
         self.__refresh_token = self.__config.get("refresh_token")
 
-        self.__is_oa_auth = self.__client_id is not None and self.__client_secret is not None and self.__refresh_token is not None and self.__refresh_token != ""
+        self.__is_oa_auth = (
+            (self.__client_id is not None and self.__client_id != "") \
+            and (self.__client_secret is not None and self.__client_secret != "") \
+            and (self.__refresh_token is not None and self.__refresh_token != "")
+        )
 
         self.__session = requests.Session()
         self.__access_token = None if self.__is_oa_auth else self.__config.get("access_token")
         self.__expires_at = None
 
-        #handle OAuth2 case where refresh token is provided in the config
-        #handle PAT auth case where access token is provided in the config
         self.__is_service_principal_auth = (
-            self.__client_id is not None \
-            and self.__client_secret is not None \
-            and (self.__access_token is None or self.__access_token == "") \
-            and not self.__is_oa_auth
+            (self.__client_id is not None and self.__client_id != "") \
+            and (self.__client_secret is not None and self.__client_secret != "") \
+            and not (self.__refresh_token is not None and self.__refresh_token != "")
         )
 
 
