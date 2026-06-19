@@ -29,14 +29,12 @@ class Targetdatabricks(Target):
             "client_id",
             th.StringType,
             secret=True,  # Flag config as protected.
-            required=True,
             description="Client ID",
         ),
         th.Property(
             "client_secret",
             th.StringType,
             secret=True,  # Flag config as protected.
-            required=True,
             description="Client Secret",
         ),
         th.Property(
